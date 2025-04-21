@@ -97,7 +97,7 @@ Grad-CAM (Gradient-weighted Class Activation Mapping) is integrated to highlight
 
 ### 🔵 Before Prediction
 
-![Before Prediction](static/sample-before.png)
+![Image](https://github.com/user-attachments/assets/2bf248ac-9448-4a69-9a1a-00f7708cd66e)
 
 ### 🟢 After Prediction
 
