@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DR Detection</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 40px;
+      background-image: url("/static/background.jpg.png");
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+      color: #222;
+    }
+
+    h1 {
+      color: #fff;
+      margin-bottom: 30px;
+      font-size: 36px;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+    }
+
+    form {
+      margin-bottom: 30px;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    input[type="submit"] {
+      padding: 10px 20px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+
+    h2 {
+      color: #fff;
+      margin-top: 20px;
+    }
+
+    img {
+      margin-top: 20px;
+      max-width: 400px;
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      transition: transform 1s ease;
+      opacity: 0;
+    }
+
+    .fade-in {
+      opacity: 1 !important;
+      transform: scale(1.02);
+    }
+
+    .flash-messages {
+      color: #ffdddd;
+      background-color: #660000;
+      font-weight: bold;
+      margin-bottom: 20px;
+      padding: 10px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    #drop-area {
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.8);
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    #drop-area.dragover {
+      background-color: #e0ffe0;
+    }
+
+    .confidence-container {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto;
+      background-color: #f3f3f3;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 15px;
+    }
+
+    .confidence-bar {
+      height: 20px;
+      background-color: #4CAF50;
+      width: 0%;
+      transition: width 2s ease-in-out;
+      color: white;
+      text-align: center;
+      line-height: 20px;
+      font-size: 14px;
+    }
+
+    #spinner {
+      margin: 30px auto;
+      display: none;
+    }
+
+    .custom-spinner {
+      border: 6px solid rgba(255, 255, 255, 0.2);
+      border-top: 6px solid #4CAF50;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin: 30px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #result {
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+
+    #result.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload Retinal Image</h1>
+
+  <form id="upload-form" action="/" method="post" enctype="multipart/form-data">
+    <div id="drop-area">
+      <p>Drag and drop an image here or click to browse</p>
+      <input type="file" name="image" id="fileElem" accept="image/*">
+    </div>
+    <input type="submit" value="Predict">
+  </form>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for message in messages %}
+          <p>{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Spinner -->
+  <div id="spinner" class="custom-spinner"></div>
+
+  <!-- Result Section -->
+  {% if prediction %}
+    <div id="result">
+      <h2>Prediction: {{ prediction }}</h2>
+
+      {% if confidence %}
+        <div class="confidence-container">
+          <div class="confidence-bar" id="confidenceBar">{{ confidence }}</div>
+        </div>
+      {% endif %}
+
+      <img id="gradcamImage" src="{{ gradcam }}" alt="Grad-CAM">
+    </div>
+  {% endif %}
+
+  <script>
+    window.onload = function () {
+      const result = document.getElementById('result');
+      const spinner = document.getElementById('spinner');
+
+      if (result) {
+        setTimeout(() => {
+          spinner.style.display = 'none';
+          result.classList.add('show');
+          document.getElementById("gradcamImage").classList.add("fade-in");
+
+          const bar = document.getElementById("confidenceBar");
+          if (bar) {
+            const percentage = parseFloat(bar.textContent);
+            bar.style.width = percentage + "%";
+          }
+        }, 1500); // wait a bit for smoothness
+      }
+    };
+
+    const dropArea = document.getElementById('drop-area');
+    const fileElem = document.getElementById('fileElem');
+    const form = document.getElementById('upload-form');
+    const spinner = document.getElementById('spinner');
+
+    dropArea.addEventListener('click', () => fileElem.click());
+
+    dropArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropArea.classList.add('dragover');
+    });
+
+    dropArea.addEventListener('dragleave', () => {
+      dropArea.classList.remove('dragover');
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        fileElem.files = files;
+        spinner.style.display = 'block';
+        form.submit();
+      }
+    });
+
+    form.addEventListener('submit', () => {
+      spinner.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
